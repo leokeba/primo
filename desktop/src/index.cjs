@@ -316,12 +316,67 @@ ipcMain.handle('save-data', async (event, site) => {
 	const directory = `${savePath}/${site.id}`;
 	if (!fs.existsSync(directory)) fs.mkdir(directory);
 	fs.writeJSON(`${directory}/data.json`, site);
+	fileStructSave(site, directory);
 
 	if (!fs.existsSync(`${directory}/preview.html`)) fs.writeFileSync(`${directory}/preview.html`, '');
 	if (!fs.existsSync(`${directory}/config.json`)) fs.writeJSONSync(`${directory}/config.json`, {});
 
 	return true;
 });
+
+// Save site into files hierarchy (WIP)
+function fileStructSave(site, path) {
+	makeSymbolsMap(site);
+	saveComponents(site, path);
+	savePages(site, path);
+}
+
+function makeSymbolsMap(site) {
+	site.symbolMap = {};
+	site.symbols.forEach(symbol => {
+		site.symbolMap[symbol.id] = symbol;
+	})
+}
+
+function savePages(site, path) {
+	if (!fs.existsSync(path + "/pages")) fs.mkdir(path + "/pages");
+	site.pages.forEach(page => {
+		let pagepath = path + "/pages/" + page.name;
+		page.content = { en: site.content.en[page.id] };
+		savePage(page, pagepath, site);
+	})
+}
+
+function savePage(page, path, site) {
+	page.sections.forEach(section => {
+		section.content = { en: page.content.en[section.id] };
+		page.code.html.below += "<" + site.symbolMap[section.symbolID]?.name + ">\n";
+	})
+	saveComponent(page, path);
+}
+
+function saveComponents(site, path) {
+	if (!fs.existsSync(path + "/components")) fs.mkdir(path + "/components");
+	site.symbols.forEach(symbol => {
+		let componentpath = path + "/components/" + symbol.name;
+		saveComponent(symbol, componentpath);
+	})
+}
+
+function saveComponent(component, path) {
+	let svelteComponent = makeSvelteComponent(component);
+	fs.writeFile(path + ".svelte", svelteComponent);
+	let { ['code']: _, ...data } = component;
+	fs.writeJSON(path + ".json", data);
+}
+
+function makeSvelteComponent(component) {
+	let code = component.code;
+	let svelteComponent = '<script>\n' + code.js + '\n</script>\n'
+	+ code.html.head ? code.html.head + "\n" + code.html.below : code.html
+	+ '\n<style>\n' + code.css + '\n</style>';
+	return svelteComponent;
+}
 
 // Delete site
 ipcMain.on('delete-site', (event, site) => {
