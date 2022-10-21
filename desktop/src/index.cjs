@@ -350,7 +350,8 @@ function savePages(site, path) {
 function savePage(page, path, site) {
 	page.sections.forEach(section => {
 		section.content = { en: page.content.en[section.id] };
-		page.code.html.below += "<" + site.symbolMap[section.symbolID]?.name + ">\n";
+		section.component = site.symbolMap[section.symbolID];
+		if (section.component) page.code.html.below += "<" + section.component.name + ">\n";
 	})
 	saveComponent(page, path);
 }
